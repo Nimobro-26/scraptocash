@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Banknote, Smartphone, CheckCircle2, Loader2, Shield } from 'lucide-react';
+import { Banknote, Smartphone, CheckCircle2, Loader2, Shield } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useScrap } from '@/context/ScrapContext';
 import { cn } from '@/lib/utils';
+import { otpSchema } from '@/lib/validation';
 
 const steps = [
   { number: 1, label: 'Upload' },
@@ -30,7 +31,9 @@ const Payment = () => {
   const [showOtp, setShowOtp] = useState(false);
 
   const handleOtpChange = (index: number, value: string) => {
+    // Only allow single digit numbers
     if (value.length > 1) return;
+    if (value && !/^\d$/.test(value)) return; // Only allow digits
     
     const newOtp = [...otp];
     newOtp[index] = value;
@@ -43,6 +46,22 @@ const Payment = () => {
     }
   };
 
+  const validateOtp = (): boolean => {
+    const otpString = otp.join('');
+    const result = otpSchema.safeParse(otpString);
+    return result.success;
+  };
+
+  // Generate secure transaction ID using crypto API
+  const generateTransactionId = (prefix: string): string => {
+    const randomBytes = crypto.getRandomValues(new Uint8Array(8));
+    const randomHex = Array.from(randomBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+    return `${prefix}${randomHex}`;
+  };
+
   const handleUpiPay = () => {
     setShowOtp(true);
     // Auto-fill OTP after 2 seconds for demo
@@ -52,7 +71,7 @@ const Payment = () => {
   };
 
   const handleVerifyOtp = () => {
-    if (otp.join('').length !== 4) return;
+    if (!validateOtp()) return;
     
     setIsVerifying(true);
     
@@ -60,8 +79,8 @@ const Payment = () => {
       setIsVerifying(false);
       setIsSuccess(true);
       
-      // Generate transaction ID
-      const txnId = 'TXN' + Date.now().toString(36).toUpperCase();
+      // Generate cryptographically secure transaction ID
+      const txnId = generateTransactionId('TXN');
       updateData({
         paymentMethod,
         transactionId: txnId,
@@ -87,7 +106,8 @@ const Payment = () => {
       setIsVerifying(false);
       setIsSuccess(true);
       
-      const txnId = 'COD' + Date.now().toString(36).toUpperCase();
+      // Generate cryptographically secure transaction ID
+      const txnId = generateTransactionId('COD');
       updateData({
         paymentMethod: 'cash',
         transactionId: txnId,
@@ -290,6 +310,7 @@ const Payment = () => {
                           </div>
 
                           <Button
+                            type="button"
                             onClick={handleVerifyOtp}
                             disabled={otp.join('').length !== 4 || isVerifying}
                             className="w-full bg-primary hover:bg-primary/90"
