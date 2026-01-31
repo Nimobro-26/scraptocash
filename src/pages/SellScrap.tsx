@@ -11,6 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { useScrap } from '@/context/ScrapContext';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  locationSchema, 
+  sanitizeText,
+  ALLOWED_IMAGE_TYPES,
+  MAX_FILE_SIZE,
+  MAX_FILES
+} from '@/lib/validation';
 
 const steps = [
   { number: 1, label: 'Upload' },
@@ -41,11 +48,56 @@ const SellScrap = () => {
 
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newImages = Array.from(files).map(file => URL.createObjectURL(file));
-      setUploadedImages(prev => [...prev, ...newImages].slice(0, 4));
+    if (!files || files.length === 0) return;
+
+    // Validate files before processing
+    const remainingSlots = MAX_FILES - uploadedImages.length;
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    
+    if (filesToProcess.length === 0) {
+      toast({
+        title: 'Maximum files reached',
+        description: `You can upload up to ${MAX_FILES} images.`,
+        variant: 'destructive',
+      });
+      return;
     }
-  }, []);
+
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    filesToProcess.forEach((file, index) => {
+      // Validate file type
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        errors.push(`File ${index + 1}: Invalid type. Use JPG, PNG, WebP, or GIF.`);
+        return;
+      }
+      
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`File ${index + 1}: Too large. Max size is 5MB.`);
+        return;
+      }
+      
+      validFiles.push(file);
+    });
+
+    if (errors.length > 0) {
+      toast({
+        title: 'Some files were rejected',
+        description: errors.join(' '),
+        variant: 'destructive',
+      });
+    }
+
+    if (validFiles.length > 0) {
+      const newImages = validFiles.map(file => URL.createObjectURL(file));
+      setUploadedImages(prev => [...prev, ...newImages].slice(0, MAX_FILES));
+    }
+    
+    // Reset input to allow re-uploading same file
+    e.target.value = '';
+  }, [uploadedImages.length, toast]);
 
   const removeImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
@@ -62,6 +114,12 @@ const SellScrap = () => {
     }, 1500);
   };
 
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Sanitize input to remove potential XSS vectors
+    const sanitized = sanitizeText(e.target.value);
+    setLocation(sanitized);
+  };
+
   const handleGetEstimate = () => {
     if (selectedCategories.length === 0) {
       toast({
@@ -72,10 +130,22 @@ const SellScrap = () => {
       return;
     }
 
-    if (!location) {
+    // Validate location with Zod schema
+    const locationResult = locationSchema.safeParse(location);
+    if (!locationResult.success) {
       toast({
-        title: 'Enter location',
-        description: 'Please enter your pickup location.',
+        title: 'Invalid location',
+        description: locationResult.error.errors[0]?.message || 'Please enter a valid location.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate weight is within bounds
+    if (weight[0] < 1 || weight[0] > 50) {
+      toast({
+        title: 'Invalid weight',
+        description: 'Weight must be between 1 and 50 kg.',
         variant: 'destructive',
       });
       return;
@@ -235,8 +305,9 @@ const SellScrap = () => {
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    onChange={handleLocationChange}
                     placeholder="Enter your address"
+                    maxLength={200}
                     className="pl-10"
                   />
                 </div>

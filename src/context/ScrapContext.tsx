@@ -55,9 +55,10 @@ export const ScrapProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addItem = (item: Omit<ScrapItem, 'id'>) => {
+    // Use crypto.randomUUID() for secure ID generation
     const newItem: ScrapItem = {
       ...item,
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
     };
     setData(prev => ({ ...prev, items: [...prev.items, newItem] }));
   };
