@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import logo from '@/assets/scrap2cash-logo.png';
 import ThemeToggle from './ThemeToggle';
+import UserMenu from './UserMenu';
 
 const Header = () => {
   return (
@@ -27,6 +28,7 @@ const Header = () => {
             </a>
           </nav>
           <ThemeToggle />
+          <UserMenu />
         </div>
       </div>
     </motion.header>
