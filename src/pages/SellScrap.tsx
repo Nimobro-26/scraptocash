@@ -149,25 +149,30 @@ const SellScrap = () => {
         }, 800);
       },
       (error) => {
+        // For demo mode: auto-fill with mock address when permission denied
+        // This makes the feature work in sandboxed environments like Lovable preview
+        const fallbackAddress = mockAddresses[Math.floor(Math.random() * mockAddresses.length)];
+        setLocation(fallbackAddress);
         setIsDetectingLocation(false);
-        let errorMessage = 'Unable to detect location. Please enter manually.';
         
+        let toastMessage = '';
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied. Please enable it in your browser settings or enter manually.';
+            toastMessage = 'Permission denied - using demo location instead.';
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information unavailable. Please try again or enter manually.';
+            toastMessage = 'Location unavailable - using demo location instead.';
             break;
           case error.TIMEOUT:
-            errorMessage = 'Location request timed out. Please try again or enter manually.';
+            toastMessage = 'Request timed out - using demo location instead.';
             break;
+          default:
+            toastMessage = 'Using demo location for preview.';
         }
         
         toast({
-          title: 'Location detection failed',
-          description: errorMessage,
-          variant: 'destructive',
+          title: 'Demo location set',
+          description: toastMessage,
         });
       },
       {
