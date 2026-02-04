@@ -37,6 +37,7 @@ const SellScrap = () => {
   const [weight, setWeight] = useState([5]);
   const [location, setLocation] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
   const handleCategoryToggle = (category: string) => {
     setSelectedCategories(prev =>
@@ -103,15 +104,78 @@ const SellScrap = () => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Mock addresses for demo mode reverse geocoding
+  const mockAddresses = [
+    'Andheri West, Mumbai - 400053',
+    'Bandra East, Mumbai - 400051',
+    'Powai, Mumbai - 400076',
+    'Malad West, Mumbai - 400064',
+    'Goregaon East, Mumbai - 400063',
+    'Thane West, Thane - 400601',
+    'Borivali West, Mumbai - 400092',
+  ];
+
+  const getMockAddress = (lat: number, lng: number): string => {
+    // Use coordinates to deterministically pick an address
+    const index = Math.abs(Math.floor((lat + lng) * 1000)) % mockAddresses.length;
+    return mockAddresses[index];
+  };
+
   const detectLocation = () => {
-    setLocation('Detecting...');
-    setTimeout(() => {
-      setLocation('IIT Bombay Campus, Mumbai - 400076');
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
       toast({
-        title: 'Location detected!',
-        description: 'We found your current location.',
+        title: 'Browser not supported',
+        description: 'Your browser does not support location detection. Please enter manually.',
+        variant: 'destructive',
       });
-    }, 1500);
+      return;
+    }
+
+    setIsDetectingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        // Mock reverse geocoding with realistic delay
+        setTimeout(() => {
+          const address = getMockAddress(latitude, longitude);
+          setLocation(address);
+          setIsDetectingLocation(false);
+          toast({
+            title: 'Location detected!',
+            description: 'We found your current location.',
+          });
+        }, 800);
+      },
+      (error) => {
+        setIsDetectingLocation(false);
+        let errorMessage = 'Unable to detect location. Please enter manually.';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location permission denied. Please enable it in your browser settings or enter manually.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information unavailable. Please try again or enter manually.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out. Please try again or enter manually.';
+            break;
+        }
+        
+        toast({
+          title: 'Location detection failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
   };
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,10 +378,25 @@ const SellScrap = () => {
                 <Button
                   variant="outline"
                   onClick={detectLocation}
-                  className="shrink-0"
+                  disabled={isDetectingLocation}
+                  className="shrink-0 min-w-[100px]"
                 >
-                  <MapPin className="w-4 h-4 mr-2" />
-                  Detect
+                  {isDetectingLocation ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <MapPin className="w-4 h-4 mr-2" />
+                      </motion.div>
+                      Detecting...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Detect
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
