@@ -41,15 +41,81 @@ export type Database = {
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          categories: Database["public"]["Enums"]["scrap_category"][]
+          confidence_score: number
+          created_at: string
+          estimated_price: number
+          id: string
+          location: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          pickup_date: string
+          pickup_time: string
+          pickup_type: string
+          status: Database["public"]["Enums"]["transaction_status"]
+          transaction_id: string
+          updated_at: string
+          user_id: string
+          weight_kg: number
+        }
+        Insert: {
+          categories: Database["public"]["Enums"]["scrap_category"][]
+          confidence_score: number
+          created_at?: string
+          estimated_price: number
+          id?: string
+          location: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          pickup_date: string
+          pickup_time: string
+          pickup_type?: string
+          status?: Database["public"]["Enums"]["transaction_status"]
+          transaction_id: string
+          updated_at?: string
+          user_id: string
+          weight_kg: number
+        }
+        Update: {
+          categories?: Database["public"]["Enums"]["scrap_category"][]
+          confidence_score?: number
+          created_at?: string
+          estimated_price?: number
+          id?: string
+          location?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          pickup_date?: string
+          pickup_time?: string
+          pickup_type?: string
+          status?: Database["public"]["Enums"]["transaction_status"]
+          transaction_id?: string
+          updated_at?: string
+          user_id?: string
+          weight_kg?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_scrap_price: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["scrap_category"][]
+          p_weight_kg: number
+        }
+        Returns: {
+          confidence_score: number
+          estimated_price: number
+        }[]
+      }
+      generate_transaction_id: { Args: { p_prefix?: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      payment_method: "upi" | "cash"
+      scrap_category: "paper" | "plastic" | "metal" | "ewaste"
+      transaction_status: "pending" | "confirmed" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,6 +242,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      payment_method: ["upi", "cash"],
+      scrap_category: ["paper", "plastic", "metal", "ewaste"],
+      transaction_status: ["pending", "confirmed", "completed", "cancelled"],
+    },
   },
 } as const

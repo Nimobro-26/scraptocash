@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { useScrap } from '@/context/ScrapContext';
 import { cn } from '@/lib/utils';
 import { otpSchema } from '@/lib/validation';
+import { createTransaction } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 const steps = [
   { number: 1, label: 'Upload' },
@@ -22,6 +24,7 @@ const steps = [
 
 const Payment = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { data, updateData } = useScrap();
   
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'cash'>('upi');
@@ -29,6 +32,7 @@ const Payment = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleOtpChange = (index: number, value: string) => {
     // Only allow single digit numbers
@@ -52,14 +56,60 @@ const Payment = () => {
     return result.success;
   };
 
-  // Generate secure transaction ID using crypto API
-  const generateTransactionId = (prefix: string): string => {
-    const randomBytes = crypto.getRandomValues(new Uint8Array(8));
-    const randomHex = Array.from(randomBytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-      .toUpperCase();
-    return `${prefix}${randomHex}`;
+  // Server-side transaction creation
+  const processTransaction = async (method: 'upi' | 'cash', otpValue?: string) => {
+    setError(null);
+    setIsVerifying(true);
+
+    try {
+      // Format pickup date for API
+      const pickupDate = data.pickupDate ? data.pickupDate.toISOString().split('T')[0] : '';
+      
+      // Get categories from items
+      const categories = data.items.map(item => item.category);
+      const totalWeight = data.items.reduce((sum, item) => sum + item.weight, 0);
+
+      const result = await createTransaction({
+        categories: categories.length > 0 ? categories : ['paper'], // fallback for demo
+        weight: totalWeight > 0 ? totalWeight : 5, // fallback for demo
+        location: data.location,
+        pickupDate,
+        pickupTime: data.pickupTime,
+        pickupType: data.pickupType,
+        paymentMethod: method,
+        otp: otpValue,
+      });
+
+      setIsVerifying(false);
+      setIsSuccess(true);
+
+      // Update context with server-validated data
+      updateData({
+        paymentMethod: method,
+        transactionId: result.transactionId,
+        estimatedPrice: result.estimatedPrice,
+      });
+
+      // Trigger confetti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#22c55e', '#16a34a', '#15803d'],
+      });
+
+      // Navigate after celebration
+      setTimeout(() => navigate('/receipt'), 2000);
+    } catch (err) {
+      setIsVerifying(false);
+      const errorMessage = err instanceof Error ? err.message : 'Transaction failed';
+      setError(errorMessage);
+      toast({
+        title: 'Transaction Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleUpiPay = () => {
@@ -70,58 +120,14 @@ const Payment = () => {
     }, 2000);
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (!validateOtp()) return;
-    
-    setIsVerifying(true);
-    
-    setTimeout(() => {
-      setIsVerifying(false);
-      setIsSuccess(true);
-      
-      // Generate cryptographically secure transaction ID
-      const txnId = generateTransactionId('TXN');
-      updateData({
-        paymentMethod,
-        transactionId: txnId,
-      });
-      
-      // Trigger confetti
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#22c55e', '#16a34a', '#15803d'],
-      });
-      
-      // Navigate after celebration
-      setTimeout(() => navigate('/receipt'), 2000);
-    }, 2000);
+    const otpString = otp.join('');
+    await processTransaction('upi', otpString);
   };
 
-  const handleCashPayment = () => {
-    setIsVerifying(true);
-    
-    setTimeout(() => {
-      setIsVerifying(false);
-      setIsSuccess(true);
-      
-      // Generate cryptographically secure transaction ID
-      const txnId = generateTransactionId('COD');
-      updateData({
-        paymentMethod: 'cash',
-        transactionId: txnId,
-      });
-      
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#22c55e', '#16a34a', '#15803d'],
-      });
-      
-      setTimeout(() => navigate('/receipt'), 2000);
-    }, 1500);
+  const handleCashPayment = async () => {
+    await processTransaction('cash');
   };
 
   // Redirect if no scheduling data

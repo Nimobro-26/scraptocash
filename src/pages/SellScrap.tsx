@@ -18,6 +18,7 @@ import {
   MAX_FILE_SIZE,
   MAX_FILES
 } from '@/lib/validation';
+import { calculatePrice } from '@/lib/api';
 
 const steps = [
   { number: 1, label: 'Upload' },
@@ -189,7 +190,7 @@ const SellScrap = () => {
     setLocation(sanitized);
   };
 
-  const handleGetEstimate = () => {
+  const handleGetEstimate = async () => {
     if (selectedCategories.length === 0) {
       toast({
         title: 'Select category',
@@ -233,32 +234,28 @@ const SellScrap = () => {
 
     updateData({ location });
 
-    // Simulate AI analysis
-    setTimeout(() => {
-      // Generate realistic price based on categories and weight
-      const pricePerKg: Record<string, number> = {
-        paper: 15,
-        plastic: 12,
-        metal: 35,
-        ewaste: 120,
-      };
-
-      let totalPrice = 0;
-      selectedCategories.forEach(cat => {
-        totalPrice += pricePerKg[cat] * (weight[0] / selectedCategories.length);
+    // Call server-side price calculation
+    try {
+      const result = await calculatePrice({
+        categories: selectedCategories,
+        weight: weight[0],
       });
-
-      // Add some randomness
-      totalPrice = Math.round(totalPrice * (0.9 + Math.random() * 0.2));
-      const confidence = Math.round(75 + Math.random() * 20);
 
       updateData({
-        estimatedPrice: totalPrice,
-        confidenceScore: confidence,
+        estimatedPrice: result.estimatedPrice,
+        confidenceScore: result.confidenceScore,
       });
 
+      setIsAnalyzing(false);
       navigate('/estimate');
-    }, 2500);
+    } catch (error) {
+      setIsAnalyzing(false);
+      toast({
+        title: 'Error calculating price',
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
