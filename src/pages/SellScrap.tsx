@@ -39,6 +39,46 @@ const SellScrap = () => {
   const [location, setLocation] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = MAX_FILES - uploadedImages.length;
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+
+    if (filesToProcess.length === 0) {
+      toast({ title: 'Maximum files reached', description: `You can upload up to ${MAX_FILES} images.`, variant: 'destructive' });
+      return;
+    }
+
+    const validFiles: File[] = [];
+    filesToProcess.forEach(file => {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return;
+      if (file.size > MAX_FILE_SIZE) return;
+      validFiles.push(file);
+    });
+
+    if (validFiles.length > 0) {
+      const newImages = validFiles.map(file => URL.createObjectURL(file));
+      setUploadedImages(prev => [...prev, ...newImages].slice(0, MAX_FILES));
+    } else {
+      toast({ title: 'Invalid files', description: 'Use JPG, PNG, WebP, or GIF under 5MB.', variant: 'destructive' });
+    }
+  }, [uploadedImages.length, toast]);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
 
   const handleCategoryToggle = (category: string) => {
     setSelectedCategories(prev =>
@@ -279,12 +319,30 @@ const SellScrap = () => {
               Upload photos and tell us about your scrap items.
             </p>
 
-            {/* Image Upload */}
-            <div className="mb-8">
+            {/* Image Upload with Drag & Drop */}
+            <div
+              className="mb-8"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
               <label className="block text-sm font-medium text-foreground mb-3">
                 Upload Photos (Optional)
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className={`relative grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-2xl p-3 transition-all duration-200 ${isDragging ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
+                <AnimatePresence>
+                  {isDragging && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 z-20 rounded-2xl bg-primary/10 border-2 border-dashed border-primary flex flex-col items-center justify-center backdrop-blur-sm"
+                    >
+                      <Upload className="w-10 h-10 text-primary mb-2" />
+                      <span className="text-sm font-medium text-primary">Drop images here</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <AnimatePresence mode="popLayout">
                   {uploadedImages.map((img, index) => (
                     <motion.div
