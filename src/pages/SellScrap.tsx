@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Upload, MapPin, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, MapPin, X, Image as ImageIcon, Loader2, ScanSearch, Camera } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProgressIndicator from '@/components/ProgressIndicator';
@@ -295,9 +295,16 @@ const SellScrap = () => {
                       className="relative aspect-square rounded-xl overflow-hidden bg-muted group"
                     >
                       <label className="cursor-pointer block w-full h-full">
-                        <img src={img} alt="Scrap" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                          <Upload className="w-6 h-6 text-white" />
+                        <img src={img} alt="Scrap" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
+                          <motion.div
+                            initial={{ scale: 0.8 }}
+                            whileHover={{ scale: 1.1 }}
+                            className="w-10 h-10 rounded-full bg-primary/90 backdrop-blur-sm flex items-center justify-center shadow-lg mb-1"
+                          >
+                            <ScanSearch className="w-5 h-5 text-primary-foreground" />
+                          </motion.div>
+                          <span className="text-xs font-medium text-white/90 drop-shadow">Tap to replace</span>
                         </div>
                         <input
                           type="file"
