@@ -18,7 +18,8 @@ import {
   MAX_FILE_SIZE,
   MAX_FILES
 } from '@/lib/validation';
-import { calculatePrice } from '@/lib/api';
+import { calculatePrice, estimateWeight } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 
 const steps = [
   { number: 1, label: 'Upload' },
@@ -40,6 +41,47 @@ const SellScrap = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEstimatingWeight, setIsEstimatingWeight] = useState(false);
+  const [aiWeightEstimated, setAiWeightEstimated] = useState(false);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const runWeightEstimation = useCallback(async (file: File) => {
+    setIsEstimatingWeight(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const result = await estimateWeight(base64);
+      
+      setWeight([Math.round(result.weight)]);
+      setAiWeightEstimated(true);
+      
+      // Auto-select the detected category if not already selected
+      if (result.category && !selectedCategories.includes(result.category)) {
+        setSelectedCategories(prev => [...prev, result.category]);
+      }
+      
+      toast({
+        title: 'AI Weight Estimated',
+        description: `~${result.weight.toFixed(1)} kg of ${result.category} detected (${result.confidence}% confidence)`,
+      });
+    } catch (error) {
+      console.error('Weight estimation failed:', error);
+      toast({
+        title: 'Weight estimation failed',
+        description: error instanceof Error ? error.message : 'Could not estimate weight. Set it manually.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsEstimatingWeight(false);
+    }
+  }, [selectedCategories, toast]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -65,6 +107,10 @@ const SellScrap = () => {
     if (validFiles.length > 0) {
       const newImages = validFiles.map(file => URL.createObjectURL(file));
       setUploadedImages(prev => [...prev, ...newImages].slice(0, MAX_FILES));
+      // Run AI weight estimation on the first valid file if not yet estimated
+      if (!aiWeightEstimated && uploadedImages.length === 0) {
+        runWeightEstimation(validFiles[0]);
+      }
     } else {
       toast({ title: 'Invalid files', description: 'Use JPG, PNG, WebP, or GIF under 5MB.', variant: 'destructive' });
     }
@@ -135,6 +181,10 @@ const SellScrap = () => {
     if (validFiles.length > 0) {
       const newImages = validFiles.map(file => URL.createObjectURL(file));
       setUploadedImages(prev => [...prev, ...newImages].slice(0, MAX_FILES));
+      // Run AI weight estimation on first image if not yet estimated
+      if (!aiWeightEstimated && uploadedImages.length === 0) {
+        runWeightEstimation(validFiles[0]);
+      }
     }
     
     // Reset input to allow re-uploading same file
@@ -454,15 +504,29 @@ const SellScrap = () => {
             {/* Weight Estimate */}
             <div className="mb-8">
               <label className="block text-sm font-medium text-foreground mb-3">
-                Estimated Weight: <span className="text-primary font-semibold">{weight[0]} kg</span>
+                Estimated Weight:{' '}
+                {isEstimatingWeight ? (
+                  <span className="text-primary font-semibold inline-flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    AI scanning...
+                  </span>
+                ) : (
+                  <span className="text-primary font-semibold">
+                    {weight[0]} kg
+                    {aiWeightEstimated && (
+                      <span className="text-xs ml-2 text-muted-foreground font-normal">(AI estimated)</span>
+                    )}
+                  </span>
+                )}
               </label>
               <Slider
                 value={weight}
-                onValueChange={setWeight}
+                onValueChange={(val) => { setWeight(val); setAiWeightEstimated(false); }}
                 max={50}
                 min={1}
                 step={1}
                 className="py-4"
+                disabled={isEstimatingWeight}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>1 kg</span>

@@ -102,6 +102,39 @@ export async function getUserTransactions() {
 }
 
 /**
+ * Estimate scrap weight from an image using AI
+ */
+export interface WeightEstimation {
+  weight: number;
+  category: string;
+  confidence: number;
+}
+
+export async function estimateWeight(imageBase64: string): Promise<WeightEstimation> {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    throw new Error('User must be authenticated');
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/estimate-weight`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ imageBase64 }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to estimate weight');
+  }
+
+  return response.json();
+}
+
+/**
  * Get a specific transaction by ID
  */
 export async function getTransaction(transactionId: string) {
