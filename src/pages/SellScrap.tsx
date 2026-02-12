@@ -292,12 +292,36 @@ const SellScrap = () => {
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.8, opacity: 0 }}
-                      className="relative aspect-square rounded-xl overflow-hidden bg-muted"
+                      className="relative aspect-square rounded-xl overflow-hidden bg-muted group"
                     >
-                      <img src={img} alt="Scrap" className="w-full h-full object-cover" />
+                      <label className="cursor-pointer block w-full h-full">
+                        <img src={img} alt="Scrap" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                          <Upload className="w-6 h-6 text-white" />
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                              toast({ title: 'Invalid file type', variant: 'destructive' });
+                              return;
+                            }
+                            if (file.size > MAX_FILE_SIZE) {
+                              toast({ title: 'File too large (max 5MB)', variant: 'destructive' });
+                              return;
+                            }
+                            setUploadedImages(prev => prev.map((img, i) => i === index ? URL.createObjectURL(file) : img));
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
                       <button
                         onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/90 transition-colors"
+                        className="absolute top-2 right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/90 transition-colors z-10"
                       >
                         <X className="w-4 h-4" />
                       </button>
